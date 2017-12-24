@@ -8,25 +8,23 @@ namespace FlitterClient {
 		ulong lon;
 		[TestFixtureSetUp]
 		public void Init(){
-			Console.WriteLine("Length 测试开始！");
+			Console.WriteLine("Start Test Length!");
 			len = new Length(1234567);
 			lon = 1234567;
-			Console.WriteLine("len对象被初始化！");
-			Console.WriteLine("lon对象被初始化！");
 		}
 		[Test]
 		public void TestConvertToLength(){
 			Length alen = (Length)lon;
 			Length bLen = new Length(1234567);
 			Assert.AreEqual(alen, bLen);
-			Assert.Inconclusive("验证此测试方法的正确性");
+			Assert.Inconclusive("Test ConvertToLength");
 		}
 		[Test]
 		public void TestConvertToUlong(){
 			ulong alen = (ulong)len;
 			ulong bLen = 1234567;
 			Assert.AreEqual(alen, bLen);
-			Assert.Inconclusive("验证此测试方法的正确性");
+			Assert.Inconclusive("Test ConvertToUlong");
 		}
 		[Test]
 		public void TestReadWrite(){
@@ -46,11 +44,11 @@ namespace FlitterClient {
 			}
 			Assert.AreEqual(len, _len);
 			Assert.AreEqual(aLen, _aLen);
-			Assert.Inconclusive("验证此测试方法的正确性");
+			Assert.Inconclusive("Test ReadWrite");
 		}
 		[TestFixtureTearDown]
 		public void Dispose(){
-			Console.WriteLine("Length 测试结束！");
+			Console.WriteLine("End Test Length!");
 　　　　　　	}
 	}
 	[TestFixture]
@@ -58,9 +56,8 @@ namespace FlitterClient {
 		Message msg;
 		[TestFixtureSetUp]
 		public void Init(){
-			Console.WriteLine("Message 测试开始！");
+			Console.WriteLine("Start Test Message!");
 			msg = new Message("Say",System.Text.Encoding.Default.GetBytes("Hello"));
-			Console.WriteLine("Message 对象被初始化！");
 		}
 		[Test]
 		public void TestReadWrite(){
@@ -80,11 +77,11 @@ namespace FlitterClient {
 			}
 			Assert.AreEqual(msg.ToString(), _msg.ToString());
 			Assert.AreEqual(aMsg.ToString(), _aMsg.ToString());
-			Assert.Inconclusive("验证此测试方法的正确性");
+			Assert.Inconclusive("Test ReadWrite");
 		}
 		[TestFixtureTearDown]
 		public void Dispose(){
-			Console.WriteLine("Message 测试结束！");
+			Console.WriteLine("End Test Message！");
 　　　　　　	}
 	}
 }

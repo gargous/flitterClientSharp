@@ -70,19 +70,23 @@ namespace FlitterClient {
         public bool Equals(ulong len){
         	return this.m_value == len;
         }
-
 		public override string ToString(){
 			return m_value+"";
 		}
 	}
-	public struct Message {
+	public class Message {
 		public string Head;  
 	 	public byte[] Body;
+	 	public Message(){
+	 	}
 	 	public Message(string head,byte[] body){
 	 		Head = head;
 	 		Body = body;
 	 	}
 	 	public void Write(Stream w){
+	 		if (Body==null || Body.Length<=0) {
+	 			throw new System.Exception("Invalid Message");
+	 		}
 			w.WriteByte((byte)('\n'));
 			int _headLen = Head.Length;
 			Length headLen = (Length)(ulong)_headLen;
