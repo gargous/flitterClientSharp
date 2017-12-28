@@ -1,6 +1,6 @@
 using System;
 using FlitterClient;
-namespace ExamApplication{
+namespace ExamEcho{
 	public class ExamClientHandler:IClientHandler{
 		IClientDealer m_dealer;
 		int m_receiveCount = 0;
@@ -17,6 +17,9 @@ namespace ExamApplication{
 		}
 		public void OnError(string err){
 			Console.WriteLine("Client Err: "+err);
+		}
+		public void OnConfig(string name,IClientHandlerGetter getter){
+
 		}
 		public void OnStart(IClientDealer dealer){
 			m_dealer = dealer;

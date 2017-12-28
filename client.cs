@@ -5,7 +5,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.IO;
 namespace FlitterClient {
+	public interface IClientHandlerGetter {
+		IClientHandler GetClientHandler(string name);
+	}
 	public interface IClientHandler {
+		void OnConfig(string name,IClientHandlerGetter getter);
 		void OnReceive(Message msg);
 		void OnError(string err);
 		void OnStart(IClientDealer dealer);
@@ -64,18 +68,29 @@ namespace FlitterClient {
 			return m_endpoint;
 		}
 	}
-	public class Client {
+	public class Client:IClientHandlerGetter {
 		ClientDealer m_dealer;
-		List<IClientHandler> m_handlers;
+		Dictionary<string,IClientHandler> m_handlers;
 		Thread m_recvThread;
 		public Client(){
-			m_handlers = new List<IClientHandler>();
+			m_handlers = new Dictionary<string,IClientHandler>();
 		}
 	  	public void Start(string ip,int port,int recvFrequant){
 	  		m_dealer = new ClientDealer();
 	  		m_dealer.Connect(ip,port);
-	  		int clientHandlerLen = m_handlers.Count;
+	  		int clientHandlerLen = 0;
+	  		List<string> clientsName = new List<string>();
+	  		List<IClientHandler> clientsHandler = new List<IClientHandler>();
+	  		foreach (var kv in m_handlers) {
+	  			clientsName.Add(kv.Key);
+	  			clientsHandler.Add(kv.Value);
+	  			clientHandlerLen++;
+	  		}
 	  		m_recvThread = new Thread(()=>{
+	  			for (int i = 0; i < clientHandlerLen; i++) {
+	  				clientsHandler[i].OnConfig(clientsName[i],this);
+					clientsHandler[i].OnStart(m_dealer);
+				}
 	  			for (; m_dealer.IsConnected(); ) {
 	  				try {
 	  					var msg = m_dealer.Recv(recvFrequant);
@@ -83,26 +98,26 @@ namespace FlitterClient {
 	  						continue;
 	  					}
 	  					for (int i = 0; i < clientHandlerLen; i++) {
-							m_handlers[i].OnReceive(msg);
+							clientsHandler[i].OnReceive(msg);
 						}
 	  				} catch (System.Exception e) {
 	  					for (int i = 0; i < clientHandlerLen; i++) {
-							m_handlers[i].OnError(e.ToString());
+							clientsHandler[i].OnError(e.ToString());
 						}
 						break;
 	  				}
 	  			}
 	  			for (int i = 0; i < clientHandlerLen; i++) {
-	  				m_handlers[i].OnEnd(m_dealer);
+	  				clientsHandler[i].OnEnd(m_dealer);
 				}
 	  		});
-			m_recvThread.Start();
-			for (int i = 0; i < clientHandlerLen; i++) {
-				m_handlers[i].OnStart(m_dealer);
-			}
+			m_recvThread.Start();	
 	  	}
-	  	public void Rejister(IClientHandler handler){
-			m_handlers.Add(handler);
+	  	public void Rejister(string name,IClientHandler handler){
+			m_handlers.Add(name,handler);
+	  	}
+	  	public IClientHandler GetClientHandler(string name){
+	  		return m_handlers[name];
 	  	}
 	}
 }
