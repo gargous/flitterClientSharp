@@ -84,4 +84,82 @@ namespace FlitterClient {
 			Console.WriteLine("End Test Message！");
 　　　　　　	}
 	}
+	[TestFixture]
+	public class FrameMessageTest{
+		FrameMessage msg;
+		[TestFixtureSetUp]
+		public void Init(){
+			DateTime now = DateTime.Now;
+			Console.WriteLine("Start Test FrameMessage!");
+			msg = new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello"),(ulong)now.Ticks);
+		}
+		[Test]
+		public void TestReadWrite(){
+			MemoryStream ms = new MemoryStream();
+			FrameMessage _msg = new FrameMessage();
+			DateTime now = DateTime.Now;
+			FrameMessage aMsg = new FrameMessage("Spell",System.Text.Encoding.Default.GetBytes("Fuck"),(ulong)now.Ticks);
+			FrameMessage _aMsg = new FrameMessage();
+			try {
+				msg.Write(ms);
+				aMsg.Write(ms);
+				ms.Position = 0;
+				_msg.Read(ms);
+				_aMsg.Read(ms);
+			} catch (System.Exception e) {
+				Console.WriteLine("Exception");
+				Console.WriteLine(e);
+			}
+			Assert.AreEqual(msg.ToString(), _msg.ToString());
+			Assert.AreEqual(aMsg.ToString(), _aMsg.ToString());
+			Assert.Inconclusive("Test ReadWrite");
+		}
+		[TestFixtureTearDown]
+		public void Dispose(){
+			Console.WriteLine("End Test FrameMessage");
+　　　　　　	}
+	}
+	[TestFixture]
+	public class FrameQueuesMessageTest{
+		FrameQueuesMessage queues;
+		[TestFixtureSetUp]
+		public void Init(){
+			DateTime now = DateTime.Now;
+			Console.WriteLine("Start Test FrameQueuesMessageTest!");
+			queues = new FrameQueuesMessage("HelloQueue");
+			queues.AddQueue(0,new FrameMessage[]{
+				new FrameMessage("Start",System.Text.Encoding.Default.GetBytes("Hello 1"),(ulong)now.Ticks),
+				new FrameMessage("Hello",System.Text.Encoding.Default.GetBytes("Hello 2"),(ulong)now.Ticks + 10),
+				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 3"),(ulong)now.Ticks + 20),
+				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 4"),(ulong)now.Ticks),
+				new FrameMessage("End",System.Text.Encoding.Default.GetBytes("Hello 5"),(ulong)now.Ticks)
+			});
+			queues.AddQueue(1,new FrameMessage[]{
+				new FrameMessage("Start",System.Text.Encoding.Default.GetBytes("Hello 11"),(ulong)now.Ticks),
+				new FrameMessage("Hello",System.Text.Encoding.Default.GetBytes("Hello 21"),(ulong)now.Ticks + 10),
+				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 31"),(ulong)now.Ticks + 20),
+				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 41"),(ulong)now.Ticks),
+				new FrameMessage("End",System.Text.Encoding.Default.GetBytes("Hello 51"),(ulong)now.Ticks)
+			});
+		}
+		[Test]
+		public void TestReadWrite(){
+			MemoryStream ms = new MemoryStream();
+			var oQueues = new FrameQueuesMessage();
+			try {
+				queues.Write(ms);
+				ms.Position = 0;
+				oQueues.Read(ms);
+			} catch (System.Exception e) {
+				Console.WriteLine("Exception");
+				Console.WriteLine(e);
+			}
+			Assert.AreEqual(oQueues.ToString(), queues.ToString());
+			Assert.Inconclusive("Test ReadWrite");
+		}
+		[TestFixtureTearDown]
+		public void Dispose(){
+			Console.WriteLine("End Test FrameQueuesMessageTest");
+　　　　　　	}
+	}
 }
