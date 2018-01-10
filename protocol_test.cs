@@ -162,4 +162,55 @@ namespace FlitterClient {
 			Console.WriteLine("End Test FrameQueuesMessageTest");
 　　　　　　	}
 	}
+	[TestFixture]
+	public class MessageTypeTest{
+		MessageType t;
+		byte t_b;
+		[TestFixtureSetUp]
+		public void Init(){
+			Console.WriteLine("Start Test MessageType!");
+			t = new MessageType(3);
+			t_b = 2;
+		}
+		[Test]
+		public void TestConvertToMessageType(){
+			MessageType aT = (MessageType)t_b;
+			MessageType bT = new MessageType(t_b);
+			Assert.AreEqual(aT, bT);
+			Assert.Inconclusive("Test ConvertToMessageType");
+		}
+		[Test]
+		public void TestConvertToByte(){
+			byte aT = (byte)t;
+			byte bT = 3;
+			Assert.AreEqual(aT, bT);
+			Assert.Inconclusive("Test ConvertToByte");
+		}
+		[Test]
+		public void TestReadWrite(){
+			MemoryStream ms = new MemoryStream();
+			MessageType t1 = t;
+			MessageType t2 = t_b;
+			MessageType t1_r = new MessageType(0);
+			MessageType t2_r = new MessageType(0);
+			try {
+				t1.Write(ms);
+				t2.Write(ms);
+				ms.Position = 0;
+				t1_r.Read(ms);
+				t2_r.Read(ms);
+			} catch (System.Exception e) {
+				Console.WriteLine("Exception");
+				Console.WriteLine(e);
+			}
+			Assert.AreEqual(t1, t1_r);
+			Assert.AreEqual(t2, t2_r);
+			Assert.AreEqual(MessageType.Frame, t2_r);
+			Assert.Inconclusive("Test ReadWrite");
+		}
+		[TestFixtureTearDown]
+		public void Dispose(){
+			Console.WriteLine("End Test MessageType!");
+　　　　　　	}
+	}
 }

@@ -1,5 +1,6 @@
 using System;
 using FlitterClient;
+using System.Threading;
 namespace ExamEcho{
 	public class ExamClientHandler:IClientHandler{
 		IClientDealer m_dealer;
@@ -10,24 +11,37 @@ namespace ExamEcho{
 				m_dealer.Disconnect();
 			}
 		}
-		public void OnReceive(Message msg){
-			Console.WriteLine("Client Receive: "+msg);
+		public void OnRecvMessage(Message msg){
+			Console.WriteLine("Client Receive Message: "+msg);
 			m_receiveCount++;
 			DisConnect();
+		}
+		public void OnRecvFrame(FrameMessage msg){
+			Console.WriteLine("Client Receive Frame: "+msg);
+		}
+		public void OnRecvQueues(FrameQueuesMessage msg){
+			Console.WriteLine("Client Receive Queues: "+msg);
 		}
 		public void OnError(string err){
 			Console.WriteLine("Client Err: "+err);
 		}
 		public void OnConfig(string name,IClientHandlerGetter getter){
-
+			Console.WriteLine("Client Config: "+name);
 		}
 		public void OnStart(IClientDealer dealer){
 			m_dealer = dealer;
 			Console.WriteLine("Client Connected "+dealer.GetEndpoint());
-			string err = dealer.Send(new Message("Spell",System.Text.Encoding.Default.GetBytes("Hi")));
+			/*
+			string err = dealer.SendFrame(new FrameMessage("Spell",System.Text.Encoding.Default.GetBytes("Hi1"),1000));
 			if (err != "") {
-				Console.WriteLine("Client Send Error "+err);
+				Console.WriteLine("Client Send Frame Error "+err);
 			}
+			Thread.Sleep(1000);
+			err = dealer.SendMessage(new Message("Say",System.Text.Encoding.Default.GetBytes("Hi2")));
+			if (err != "") {
+				Console.WriteLine("Client Send Message Error "+err);
+			}
+			*/
 			m_connected = true;
 			DisConnect();
 		}
@@ -38,7 +52,7 @@ namespace ExamEcho{
 	public class ExamDemo{
         static void Main(string[] args){
         	var app = new Client();
-        	app.Rejister(new ExamClientHandler());
+        	app.Rejister("EchoTest",new ExamClientHandler());
 			app.Start("127.0.0.1", 9090, 10);
         }
     }

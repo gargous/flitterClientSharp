@@ -10,13 +10,17 @@ namespace FlitterClient {
 	}
 	public interface IClientHandler {
 		void OnConfig(string name,IClientHandlerGetter getter);
-		void OnReceive(Message msg);
+		void OnRecvMessage(Message msg);
+		void OnRecvFrame(FrameMessage msg);
+		void OnRecvQueues(FrameQueuesMessage msg);
 		void OnError(string err);
 		void OnStart(IClientDealer dealer);
 		void OnEnd(IClientDealer dealer);
 	}
 	public interface IClientDealer{
-		string Send(Message msg);
+		string SendMessage(Message msg);
+		string SendFrame(FrameMessage msg);
+		string SendQueues(FrameQueuesMessage msg);
 		void Disconnect();
 		IPEndPoint GetEndpoint();
 	}
@@ -28,29 +32,56 @@ namespace FlitterClient {
 		public ClientDealer(){
 			m_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		}
-		public string Send(Message msg){
+		string send(MessageType t,Writer r){
 			try {
 				if (m_sendStream == null) {
             		m_sendStream = new NetworkStream(m_socket);
-            		msg.Write(m_sendStream);
+            		t.Write(m_sendStream);
+            		r.Write(m_sendStream);
             		m_sendStream.Flush();
         		}
+        		return "";
 			} catch (System.Exception e) {
 				return e.ToString();
 			}
-			return "";
 		}
-		public Message Recv(int time){
+		public string SendMessage(Message msg){
+			return send(MessageType.Normal,msg);
+		}
+		public string SendFrame(FrameMessage msg){
+			return send(MessageType.Frame,msg);
+		}
+		public string SendQueues(FrameQueuesMessage msg){
+			return send(MessageType.FrameQueues,msg);
+		}
+		public void Recv(int time,Action<MessageType,Message,FrameMessage,FrameQueuesMessage> cb){
 			if (m_socket.Poll(time, SelectMode.SelectRead)) {
                 if (m_recvStream == null) {
             		m_recvStream = new NetworkStream(m_socket);
         		}
-				Message msg = new Message();
-				msg.Read(m_recvStream);
-				return msg;
+        		MessageType t = new MessageType(0);
+        		t.Read(m_recvStream);
+        		switch ((byte)t) {
+        			case MessageType.Normal:
+        				Message msg = new Message();
+						msg.Read(m_recvStream);
+						cb(t,msg,null,null);
+        				break;
+        			case MessageType.Frame:
+        				FrameMessage frame = new FrameMessage();
+						frame.Read(m_recvStream);
+						cb(t,null,frame,null);
+        				break;
+        			case MessageType.FrameQueues:
+        				FrameQueuesMessage queues = new FrameQueuesMessage();
+						queues.Read(m_recvStream);
+						cb(t,null,null,queues);
+        				break;
+        			default:
+        			  	break;
+        		}
             } else {
                 Thread.Sleep(time);
-                return null;
             }
 		}
 		public bool IsConnected(){
@@ -93,13 +124,28 @@ namespace FlitterClient {
 				}
 	  			for (; m_dealer.IsConnected(); ) {
 	  				try {
-	  					var msg = m_dealer.Recv(recvFrequant);
-	  					if (msg == null) {
-	  						continue;
-	  					}
-	  					for (int i = 0; i < clientHandlerLen; i++) {
-							clientsHandler[i].OnReceive(msg);
-						}
+	  					m_dealer.Recv(recvFrequant,(t,msg,frame,queues)=>{
+	  						switch ((byte)t) {
+								case MessageType.Normal:
+									for (int i = 0; i < clientHandlerLen; i++) {
+										clientsHandler[i].OnRecvMessage(msg);
+									}
+        							break;
+        						case MessageType.Frame:
+        							for (int i = 0; i < clientHandlerLen; i++) {
+										clientsHandler[i].OnRecvFrame(frame);
+									}
+        							break;
+        						case MessageType.FrameQueues:
+        							for (int i = 0; i < clientHandlerLen; i++) {
+										clientsHandler[i].OnRecvQueues(queues);
+									}
+        							break;
+        						default:
+        			 	 			break;
+							}
+							
+	  					});
 	  				} catch (System.Exception e) {
 	  					for (int i = 0; i < clientHandlerLen; i++) {
 							clientsHandler[i].OnError(e.ToString());
@@ -111,7 +157,7 @@ namespace FlitterClient {
 	  				clientsHandler[i].OnEnd(m_dealer);
 				}
 	  		});
-			m_recvThread.Start();	
+			m_recvThread.Start();
 	  	}
 	  	public void Rejister(string name,IClientHandler handler){
 			m_handlers.Add(name,handler);

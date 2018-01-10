@@ -2,7 +2,13 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 namespace FlitterClient {
-	public struct Length {
+	public interface Writer {
+		void Write(Stream w);
+	}
+	public interface Reader {
+		void Read(Stream r);
+	}
+	public struct Length:Writer,Reader {
 		ulong m_value;
 		public Length(ulong value){
 			m_value = value;
@@ -87,7 +93,7 @@ namespace FlitterClient {
 			return m_value+"";
 		}
 	}
-	public class Message {
+	public class Message:Writer,Reader {
 		public string Head;  
 	 	public byte[] Body;
 	 	public Message(){
@@ -160,7 +166,7 @@ namespace FlitterClient {
 			return string.Concat(base.ToString(),"TimeStamp:", TimeStamp.ToString());
 		}
 	}
-	public class FrameQueuesMessage {
+	public class FrameQueuesMessage:Writer,Reader {
 	  	public string Head;
 	  	public Dictionary<ulong,FrameMessage[]> Queues;
 		int count;
@@ -275,6 +281,50 @@ namespace FlitterClient {
 			}
 			head = string.Concat(head,"]");
 			return head;
+		}
+	}
+	
+	public struct MessageType:Writer,Reader {	
+	  	byte m_value;
+	  	public const byte Normal = 1;
+		public const byte Frame = 2;
+		public const byte FrameQueues = 3;
+	  	public MessageType (byte value){
+	  		m_value = value;
+	  	} 
+	  	public static implicit operator MessageType(byte value){
+   			return new MessageType{
+   				m_value=value
+   			};
+		}
+		public static implicit operator byte(MessageType t){
+   			return t.m_value;
+		}
+		public static implicit operator MessageType(int value){
+   			return new MessageType{
+   				m_value=(byte)value
+   			};
+		}
+		public static implicit operator int(MessageType t){
+   			return (int)t.m_value;
+		}
+	  	public void Write(Stream w){
+			w.WriteByte(m_value);
+		}
+		public void Read(Stream r){
+			m_value = (byte)r.ReadByte();
+		}
+        public bool Equals(MessageType t){
+        	return m_value == t.m_value;
+        }
+        public bool Equals(byte t){
+        	return m_value == t;
+        }
+        public bool Equals(int t){
+        	return m_value == (byte)t;
+        }
+		public override string ToString(){
+			return m_value.ToString();
 		}
 	}
 }
