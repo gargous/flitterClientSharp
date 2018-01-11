@@ -18,6 +18,10 @@ namespace ExamEcho{
 		}
 		public void OnRecvFrame(FrameMessage msg){
 			Console.WriteLine("Client Receive Frame: "+msg);
+			string err = m_dealer.SendFrame(msg);
+			if (err != "") {
+				Console.WriteLine("Client Send Frame Error "+err);
+			}
 		}
 		public void OnRecvQueues(FrameQueuesMessage msg){
 			Console.WriteLine("Client Receive Queues: "+msg);
@@ -31,18 +35,26 @@ namespace ExamEcho{
 		public void OnStart(IClientDealer dealer){
 			m_dealer = dealer;
 			Console.WriteLine("Client Connected "+dealer.GetEndpoint());
-			/*
-			string err = dealer.SendFrame(new FrameMessage("Spell",System.Text.Encoding.Default.GetBytes("Hi1"),1000));
-			if (err != "") {
-				Console.WriteLine("Client Send Frame Error "+err);
-			}
-			Thread.Sleep(1000);
-			err = dealer.SendMessage(new Message("Say",System.Text.Encoding.Default.GetBytes("Hi2")));
-			if (err != "") {
-				Console.WriteLine("Client Send Message Error "+err);
-			}
-			*/
 			m_connected = true;
+			var t = new Thread(()=>{
+
+				for (int i=0;i<3; i++) {
+					Thread.Sleep(300);
+					string err = m_dealer.SendMessage(new Message("Say",System.Text.Encoding.Default.GetBytes("Hi2"+i)));
+					if (err != "") {
+						Console.WriteLine("Client Send Message Error "+err);
+					}
+				}
+				for (int i=0;i<3; i++) {
+					Thread.Sleep(300);
+					DateTime now = DateTime.Now;
+					string err = m_dealer.SendFrame(new FrameMessage("Spell",System.Text.Encoding.Default.GetBytes("Hi1"+i),(ulong)now.Ticks));
+					if (err != "") {
+						Console.WriteLine("Client Send Frame Error "+err);
+					}
+				}
+			});
+			t.Start();
 			DisConnect();
 		}
 		public void OnEnd(IClientDealer dealer){

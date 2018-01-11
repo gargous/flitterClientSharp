@@ -31,34 +31,28 @@ namespace FlitterClient {
 		}
 		public void Write(Stream w){
 			ulong tLen = m_value;
-			byte[] buf = new byte[10];
-			int n = 0;
 			if (tLen == 0) {
-				buf[0] = 0;
-				w.Write(buf,0,1);
+				w.WriteByte(0);
 				return;
 			}
-			for( ;tLen > 0; n++) {
+			for( ;tLen > 0; ) {
 				ulong temp = tLen >> 7;
-				ulong now = tLen & 127;
+				byte now = (byte)(tLen & 127);
 				if(temp <= 0) {
 					//No More
-					buf[n] = (byte)now;
+					w.WriteByte((byte)now);
 				} else {
 					//Append More
-					buf[n] = (byte)(now | 128);
+					w.WriteByte((byte)(now | 128));
 				}
 				tLen = temp;
 			}
-			w.Write(buf,0,n);
 		}
 		public void Read(Stream r){
 			ulong tLen = 0;
 			int offset = 0;
-			byte[] buf = new byte[1];
 			for (int i = 0; i < 10; i++) {
-				r.Read(buf,0,1);
-				ulong now = (ulong)(buf[0]);
+				ulong now = (ulong)(r.ReadByte());
 				ulong temp = now & 128;
 				if (temp <= 0) {
 					//No More
@@ -139,8 +133,8 @@ namespace FlitterClient {
 			return string.Concat("Head:", Head," Body:", System.Text.Encoding.Default.GetString(Body));
 		}
 	}
-	public class FrameMessage:Message {
-	  	public Length TimeStamp;
+	public class FrameMessage:Message,Writer,Reader {
+	  	public ulong TimeStamp;
 	  	public FrameMessage(){
 	 	}
 	  	public FrameMessage(string head,byte[] body,ulong timeStamp){
@@ -150,11 +144,14 @@ namespace FlitterClient {
 	 	}
 	 	new public void Write(Stream w){
 	 		base.Write(w);
-	 		TimeStamp.Write(w);
+	 		Length _timeStamp = (Length)TimeStamp;
+	 		_timeStamp.Write(w);
 		}
 		new public void Read(Stream r){
 			base.Read(r);
-			TimeStamp.Read(r);
+			Length _timeStamp = new Length(0);
+			_timeStamp.Read(r);
+			TimeStamp = (ulong)_timeStamp;
 		}
         public bool Equals(FrameMessage msg){
         	if (TimeStamp != msg.TimeStamp) {

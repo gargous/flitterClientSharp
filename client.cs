@@ -36,10 +36,10 @@ namespace FlitterClient {
 			try {
 				if (m_sendStream == null) {
             		m_sendStream = new NetworkStream(m_socket);
-            		t.Write(m_sendStream);
-            		r.Write(m_sendStream);
-            		m_sendStream.Flush();
         		}
+        		t.Write(m_sendStream);
+            	r.Write(m_sendStream);
+            	m_sendStream.Flush();
         		return "";
 			} catch (System.Exception e) {
 				return e.ToString();
