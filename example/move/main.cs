@@ -1,246 +1,326 @@
 using System;
+using System.Text;
 using System.Windows.Forms;
 using System.Drawing;
-using System.SimpleJson;
+using SimpleJson;
 using System.Collections.Generic;
-using FlitterClient;
 namespace ExamMove {
-    public struct MessageFrames  {
-        Dictionary<uint>[]FrameMessage Frames
-    }
-    public struct FrameMessage {
-        ulong TimeStamp;
-        string Head;
-        byte[] Body;
-    }
     public struct MessageID  {
-        uint ID;      
-        ulong TimeStamp;
-    }
-    public struct MessageMoveBall {
-        ulong TimeStamp;
-        float X;   
-        float Y;
+        public ulong ID;
+        public string ToJson(){
+            var jobj = new JsonObject();
+            jobj.Add("ID",ID);
+            return jobj.ToString(); 
+        }
+        static public MessageID FromJson(string jobjStr){
+            var jobj = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(jobjStr);
+            var mid = new MessageID();
+            mid.ID = ulong.Parse(jobj["ID"].ToString());
+            return mid; 
+        }
     }
 	public struct Vector {
-		public float x;
-		public float y;
+		public float X;
+		public float Y;
+        public Vector(float x,float y){
+            X = x;
+            Y = y;
+        }
 		public static Vector operator +(Vector v1,Vector v2){
 			return new Vector{
-				x=v1.x+v2.x,
-				y=v1.y+v2.y
+				X=v1.X+v2.X,
+				Y=v1.Y+v2.Y
 			};
 		}
 		public static Vector operator *(Vector v,float sf){
 			return new Vector{
-				x=v.x*sf,
-				y=v.y*sf
+				X=v.X*sf,
+				Y=v.Y*sf
 			};
 		}
+        public bool Equals(Vector v){
+            if (X!=v.X) {
+                return false;
+            }
+            if (Y!=v.Y) {
+                return false;
+            }
+            return true;
+        }
+        public string ToJson(){
+            var jobj = new JsonObject();
+            jobj.Add("X",X);
+            jobj.Add("Y",Y);
+            return jobj.ToString();
+        }
+        static public Vector FromJson(string jobjStr){
+            var jobj = SimpleJson.SimpleJson.DeserializeObject<JsonObject>(jobjStr);
+            var vec = new Vector();
+            vec.X = float.Parse(jobj["X"].ToString());
+            vec.Y = float.Parse(jobj["Y"].ToString());
+            return vec; 
+        }
 	}
 	public class Actor {
-	  	public uint id;
+	  	public ulong id;
 	  	public Vector pos;
 	  	public Vector vel;
-	  	Vector shandowPos;
-        public ulong TimeStamp;
-	  	Brush bursh;
-	  	public Actor(){
-	  		bursh = new SolidBrush(Color.FromArgb(255,255,50,70));
+        public Vector size;
+	  	Vector m_shandowPos;
+	  	Brush m_bursh;
+        ulong m_timeStamp;
+	  	public Actor(ulong id,ulong timeStamp){
+            size = new Vector(30,30);
+	  		m_bursh = new SolidBrush(Color.FromArgb(255,255,50,70));
+            this.id = id;
+            m_timeStamp = timeStamp;
 	  	}
-	  	public void Update(){
-	  		pos += vel;
+	  	public void Update(int deltaTime){
+            m_timeStamp += (ulong)deltaTime;
+	  		pos += vel*(0.001f*deltaTime);
         	float lerp = 0.1f;
-        	shandowPos = shandowPos * (1-lerp) + pos*lerp;
+        	m_shandowPos = m_shandowPos * (1-lerp) + pos*lerp;
 	  	}
+        public void Move(ulong timeStamp,Vector vel){
+            long newTime = (long)timeStamp;
+            long oldTime = (long)m_timeStamp;
+            long diff = newTime - oldTime;
+            Console.WriteLine(newTime+"-"+oldTime+"="+diff);
+
+            pos += this.vel*(0.001f*diff);
+            
+            this.vel = vel;
+            m_timeStamp = timeStamp;
+        }
 	  	public void Draw(Graphics g){
-			g.FillEllipse(bursh, shandowPos.x, shandowPos.y, 30, 30);
+			g.FillEllipse(m_bursh, m_shandowPos.X, m_shandowPos.Y, size.X, size.Y);
 	  	}
 	}
-    public struct ObjectMessage {
-        int Head;
-        uint ID;
-        object Obj;
-    }
-    public class ExamClientHandler:IClientHandler{
-        IClientDealer m_dealer;
+    public class ExamClientHandler:FlitterClient.IClientHandler{
+        FlitterClient.IClientDealer m_dealer;
         bool m_connected = false;
-        uint m_id;
-        Queue<ObjectMessage> m_msgQueue;
+        ulong m_id;
+        event System.Action<ulong,ulong,ulong> m_startHandler = (a,b,c)=>{};
+        event System.Action<bool,ulong,ulong> m_createHandler = (a,b,c)=>{};
+        event System.Action<bool,ulong,ulong> m_deleteHandler = (a,b,c)=>{};
+        event System.Action<bool,ulong,Vector,ulong> m_moveHandler = (a,b,v,c)=>{};
+        Queue<FlitterClient.Message> m_waitQueue;
         ExamDemo m_demo;
+        ulong m_timeStamp = 0;
+        ulong m_deltaTime = 10;
         public ExamClientHandler(ExamDemo demo){
             m_demo = demo;
         }
-        public void OnReceive(Message msg){
-            Console.WriteLine("Client Receive: "+msg);
-            var obj = SimpleJson.Deserialize<JsonObject>(msg.Body)
+        public ulong GetTimeStamp(){
+            return m_timeStamp;
+        }
+        public void SetTimeStamp(ulong timeStamp){
+            m_timeStamp = timeStamp;
+        }
+        public void OnRecvMessage(FlitterClient.Message msg){
+            Console.WriteLine("FlitterClient.Client Receive FlitterClient.Message: "+msg);
+        }
+        public void OnRecvFrame(FlitterClient.FrameMessage msg){
+            Console.WriteLine("FlitterClient.Client Receive Frame: "+msg);
             switch (msg.Head) {
                 case "Start":
-                    m_id = uint.Parse(obj["ID"].ToString());
-                    var timeStamp = ulong.Parse(obj["TimeStamp"].ToString());
-                    m_demo.SetTimeStamp(timeStamp);
-                    var createBody = SimpleJson.Serialize(new MessageMoveBall{
-                        TimeStamp=timeStamp,
-                        X = 50,
-                        Y = 50
-                    });
-                    var createMsg = new Message("CreateBall",createBody);
-                    Send(createMsg);
-                    break;
-                case "Frames":
-                    var frames = (Dictionary<uint,object>)(obj["Frames"]);
-                    foreach (kv in frames) {
-                        uint id = kv.Key;
-                        string valueStr = kv.Value.ToString();
-                        var fmsg = SimpleJson.Deserialize<FrameMessage>(valueStr);
-                        switch (fmsg.Head) {
-                            case "CreateBall":
-                                var createobj = SimpleJson.Deserialize<MessageMoveBall>(msg.Body);
-                                m_msgQueue.Enqueue(new ObjectMessage{ID=id,Head=0,Obj=createobj});
-                                break;
-                            case "DeleteBall":
-                                var deleteobj = SimpleJson.Deserialize<MessageID>(msg.Body);
-                                m_msgQueue.Enqueue(new ObjectMessage{ID=id,Head=1,Obj=deleteobj});
-                                break;
-                            case "MoveBall":
-                                var moveobj = SimpleJson.Deserialize<MessageMoveBall>(msg.Body);
-                                m_msgQueue.Enqueue(new ObjectMessage{ID=id,Head=2,Obj=moveobj});
-                                break;
-                        }
-                    }
-                    break;
+                m_timeStamp = msg.TimeStamp;
+                var mid = MessageID.FromJson(Encoding.Default.GetString(msg.Body));
+                m_startHandler(mid.ID,m_timeStamp,m_deltaTime);
+                m_id = mid.ID;
+                break;
+            }
+        }
+        public void SetOnStartFrame(System.Action<ulong,ulong,ulong> cb){
+            m_startHandler += cb;
+        }
+        public void OnRecvQueues(FlitterClient.FrameQueuesMessage msg){
+            Console.WriteLine("FlitterClient.Client Receive Queues: "+msg);
+            for (int i=0; i<msg.Queues.Count;i++) {
+                var kv = msg.Queues[i];
+                var id = kv.Key;
+                var frames = kv.Value;
+                for (int j=0; j<frames.Length;j++) {
+                    var frame = frames[j];
+                    OnRecvFrame(false,id,frame);
+                }
             }
         }
         public void OnError(string err){
-            Console.WriteLine("Client Err: "+err);
+            Console.WriteLine("FlitterClient.Client Err: "+err);
         }
-        public void OnConfig(string name,IClientHandlerGetter getter){
+        public void OnConfig(string name,FlitterClient.IClientHandlerGetter getter){
 
         }
-        public Queue<ObjectMessage> GetQueue(){
-            return m_msgQueue;
-        }
-        public void OnStart(IClientDealer dealer){
+        public void OnStart(FlitterClient.IClientDealer dealer){
             m_dealer = dealer;
-            Console.WriteLine("Client Connected "+dealer.GetEndpoint());
+            Console.WriteLine("FlitterClient.Client Connected "+dealer.GetEndpoint());
             m_connected = true;
-            m_msgQueue = new Queue<ObjectMessage>();
+            m_waitQueue = new Queue<FlitterClient.Message>();
         }
-        public void Send(Message msg){
-            string err = m_dealer.Send(msg);
-            if (err!="") {
-                Console.WriteLine("Client Send Error "+err);
+        void OnRecvFrame(bool local,ulong id,FlitterClient.FrameMessage msg){
+            switch (msg.Head) {
+                case "CreateBall":
+                m_createHandler(local,id,msg.TimeStamp);
+                break;
+                case "DeleteBall":
+                m_deleteHandler(local,id,msg.TimeStamp);
+                break;
+                case "MoveBall":
+                var vec = Vector.FromJson(Encoding.Default.GetString(msg.Body));
+                m_moveHandler(local,id,vec,msg.TimeStamp);
+                break;
             }
         }
-        public void OnEnd(IClientDealer dealer){
-            Console.WriteLine("Client DisConnected "+dealer.GetEndpoint());
-        }   
+        public void CreateBall(){
+            var msg = new FlitterClient.Message("CreateBall",new byte[]{(byte)'0'});
+            Send(msg);
+        }
+        public void SetOnCreateBall(System.Action<bool,ulong,ulong> cb){
+            m_createHandler += cb;
+        }
+        public void MoveBall(Vector vel){
+            var msg = new FlitterClient.Message("MoveBall",Encoding.Default.GetBytes(vel.ToJson()));
+            Send(msg);
+        }
+        public void SetOnMoveBall(System.Action<bool,ulong,Vector,ulong> cb){
+            m_moveHandler += cb;
+        }
+        public void DeleteBall(){
+            var msg = new FlitterClient.Message("DeleteBall",new byte[]{(byte)'0'});
+            Send(msg);
+        }
+        public void SetOnDeleteBall(System.Action<bool,ulong,ulong> cb){
+            m_deleteHandler += cb;
+        }
+        public void DispatchFrame(){
+            if(m_waitQueue.Count>0){
+                var msg = m_waitQueue.Dequeue();
+                var frame = new FlitterClient.FrameMessage(msg,m_timeStamp);
+                m_dealer.SendFrame(frame);
+                OnRecvFrame(true,m_id,frame);
+            }
+            m_timeStamp+=m_deltaTime;
+        }
+        void Send(FlitterClient.Message msg){
+            m_waitQueue.Enqueue(msg);
+        }
+        public void OnEnd(FlitterClient.IClientDealer dealer){
+            Console.WriteLine("FlitterClient.Client DisConnected "+dealer.GetEndpoint());
+        }
     }
 	public class ExamDemo:Form{
-		Actor m_actor;
 		float m_speed;
 		Timer m_timer;
-        Client m_client;
-        Dictionary<uint,Actor> m_actors;
+        FlitterClient.Client m_client;
+        Dictionary<ulong,Actor> m_actors;
+        Actor m_localActor;
         ExamClientHandler m_handler;
-        Queue<ObjectMessage> m_msgQueue;
 		public static void Main(){
-            m_actors = new Dictionary<uint,Actor>();
             Application.Run(new ExamDemo());
-            m_client = new Client();
-            m_handler = new ExamClientHandler(this);
-            m_msgQueue = m_handler.GetQueue();
-            m_client.Rejister(m_handler);
-            m_client.Start("127.0.0.1", 9090, 10);
-        }
-        public void SetTimeStamp(ulong timeStamp){
-            m_actor.TimeStamp = timeStamp;
         }
         public ExamDemo() {
         	Text = "Exam Move Demo";
         	BackColor = Color.Black;
-        	Width = 1080;
-        	Height = 680;
+        	Width = 800;
+        	Height = 480;
         	KeyPreview = true;
-        	m_actor = new Actor();
-        	m_speed = 8;
-        	m_timer = new Timer();
-        	m_timer.Interval = 10;
-            m_timer.Tick += new EventHandler(OnTimeTick);
-            m_timer.Start();
+        	m_speed = 200;
+            m_actors = new Dictionary<ulong,Actor>();
+            m_client = new FlitterClient.Client();
+            m_handler = new ExamClientHandler(this);
+            m_client.Rejister("Move",m_handler);
+            m_handler.SetOnStartFrame((id,timeStamp,delatTime)=>{
+                m_localActor = new Actor(id,timeStamp);
+                m_timer = new Timer();
+                m_timer.Interval = (int)delatTime;
+                m_timer.Tick += new EventHandler(OnTimeTick);
+                m_timer.Start();
+            });
+            m_handler.SetOnCreateBall((local,id,timeStamp)=>{
+                Random ra = new Random((int)((id+timeStamp)%10000000));
+                if (id==m_localActor.id && local) {
+                    Console.WriteLine("I Enter "+id+":"+timeStamp);
+                    m_localActor.pos.X = ra.Next((int)m_localActor.size.X,(int)(Width-m_localActor.pos.X));
+                    m_localActor.pos.Y = ra.Next((int)m_localActor.size.Y,(int)(Height-m_localActor.pos.Y));
+                    m_actors[m_localActor.id] = m_localActor;
+                } else{
+                    if (id!=m_localActor.id) {
+                        Console.WriteLine("Some Enter "+id+":"+timeStamp);
+                        var actor = new Actor(id,timeStamp);
+                        actor.pos.X = ra.Next((int)actor.size.X,(int)(Width-actor.pos.X));
+                        actor.pos.Y = ra.Next((int)actor.size.Y,(int)(Height-actor.pos.Y));
+                        m_actors[id] = actor;
+                    }
+                }
+            });
+            m_handler.SetOnMoveBall((local,id,vel,timeStamp)=>{
+                if (id==m_localActor.id && local) {
+                    m_actors[m_localActor.id].Move(timeStamp,vel);
+                }else{
+                    if (id!=m_localActor.id) {
+                        m_actors[id].Move(timeStamp,vel);
+                    }
+                }
+            });
+            m_client.Start("127.0.0.1", 9090, 10);
         }
         void OnTimeTick(object obj,EventArgs e){
-            for (int i=0; i<10; i++) {
-                if(m_msgQueue.Count<=0){
-                    break
-                }
-                ObjectMessage msg = m_msgQueue.Dequeue();
-                switch (msg.Head) {
-                    case 0:
-                        var createobj = (MessageMoveBall)msg.Obj;
-                        break;
-                    case 1:
-                        var deleteobj = (MessageID)msg.Obj;
-                        break;
-                    case 2:
-                        var moveobj = (MessageMoveBall)msg.Obj;
-                        break;
-                }
+            m_handler.DispatchFrame();
+            foreach (var v in m_actors.Values) {
+                v.Update(m_timer.Interval);
             }
-        	m_actor.Update();
-            m_actor.TimeStamp += 10; 
         	Invalidate();
         }
         protected override void OnPaint(PaintEventArgs e){
         	Graphics g = e.Graphics;
         	g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-			m_actor.Draw(g);
+            foreach (var v in m_actors.Values) {
+                v.Draw(g);
+            }
         }
         protected override void OnKeyDown(KeyEventArgs e){
+            var vel = m_localActor.vel;
         	switch (e.KeyCode) {
         		case Keys.Left:
-        			m_actor.vel.x = -m_speed;
+        			vel.X = -m_speed;
         			break;
         		case Keys.Right:
-        			m_actor.vel.x = m_speed;
+        			vel.X = m_speed;
         			break;
         		case Keys.Up:
-        			m_actor.vel.y = -m_speed;
+        			vel.Y = -m_speed;
         			break;
         		case Keys.Down:
-        			m_actor.vel.y = m_speed;
+        			vel.Y = m_speed;
         			break;
         	}
-            var moveBody = SimpleJson.Serialize(new MessageMoveBall{
-                TimeStamp=timeStamp,
-                X = m_actor.vel.X,
-                Y = m_actor.vel.Y
-            });
-            var moveMsg = new Message("MoveBall",moveBody);
-            m_handler.Send(moveMsg);
+            if (!m_localActor.vel.Equals(vel)) {
+                m_handler.MoveBall(vel);
+            }
         }
         protected override void OnKeyUp(KeyEventArgs e){
+            var vel = m_localActor.vel;
         	switch (e.KeyCode) {
+                case Keys.Space:
+                    m_handler.CreateBall();
+                    return;
         		case Keys.Left:
-        			m_actor.vel.x = 0;
+        			vel.X = 0;
         			break;
         		case Keys.Right:
-        			m_actor.vel.x = 0;
+        			vel.X = 0;
         			break;
         		case Keys.Up:
-        			m_actor.vel.y = 0;
+        			vel.Y = 0;
         			break;
         		case Keys.Down:
-        			m_actor.vel.y = 0;
+        			vel.Y = 0;
         			break;
         	}
-            var moveBody = SimpleJson.Serialize(new MessageMoveBall{
-                TimeStamp=timeStamp,
-                X = m_actor.vel.X,
-                Y = m_actor.vel.Y
-            });
-            var moveMsg = new Message("MoveBall",moveBody);
-            m_handler.Send(moveMsg);
+            if (!m_localActor.vel.Equals(vel)) {
+                m_handler.MoveBall(vel);
+            }
         }
 	}
 }

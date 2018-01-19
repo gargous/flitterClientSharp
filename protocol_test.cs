@@ -127,14 +127,14 @@ namespace FlitterClient {
 			DateTime now = DateTime.Now;
 			Console.WriteLine("Start Test FrameQueuesMessageTest!");
 			queues = new FrameQueuesMessage("HelloQueue");
-			queues.AddQueue(0,new FrameMessage[]{
+			queues.AppendQueue(0,new FrameMessage[]{
 				new FrameMessage("Start",System.Text.Encoding.Default.GetBytes("Hello 1"),(ulong)now.Ticks),
 				new FrameMessage("Hello",System.Text.Encoding.Default.GetBytes("Hello 2"),(ulong)now.Ticks + 10),
 				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 3"),(ulong)now.Ticks + 20),
 				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 4"),(ulong)now.Ticks),
 				new FrameMessage("End",System.Text.Encoding.Default.GetBytes("Hello 5"),(ulong)now.Ticks)
 			});
-			queues.AddQueue(1,new FrameMessage[]{
+			queues.AppendQueue(1,new FrameMessage[]{
 				new FrameMessage("Start",System.Text.Encoding.Default.GetBytes("Hello 11"),(ulong)now.Ticks),
 				new FrameMessage("Hello",System.Text.Encoding.Default.GetBytes("Hello 21"),(ulong)now.Ticks + 10),
 				new FrameMessage("Say",System.Text.Encoding.Default.GetBytes("Hello 31"),(ulong)now.Ticks + 20),

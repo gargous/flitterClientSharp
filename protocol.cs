@@ -137,6 +137,11 @@ namespace FlitterClient {
 	  	public ulong TimeStamp;
 	  	public FrameMessage(){
 	 	}
+	 	public FrameMessage(Message msg,ulong timeStamp){
+	 		Head = msg.Head;
+	 		Body = msg.Body;
+	 		TimeStamp = timeStamp;
+	 	}
 	  	public FrameMessage(string head,byte[] body,ulong timeStamp){
 	 		Head = head;
 	 		Body = body;
@@ -165,29 +170,20 @@ namespace FlitterClient {
 	}
 	public class FrameQueuesMessage:Writer,Reader {
 	  	public string Head;
-	  	public Dictionary<ulong,FrameMessage[]> Queues;
-		int count;
+	  	public List<KeyValuePair<ulong,FrameMessage[]>> Queues;
 		public FrameQueuesMessage(){
 	 	}
 		public FrameQueuesMessage(string head){
 	 		Head = head;
 	 	}
-	 	public void AddQueue(ulong id, FrameMessage[] queue) {
+	 	public void AppendQueue(ulong id, FrameMessage[] queue) {
 			if (Queues == null) {
-				Queues = new Dictionary<ulong,FrameMessage[]>();
+				Queues = new List<KeyValuePair<ulong,FrameMessage[]>>();
 			}
-			count++;
-			Queues.Add(id,queue);
-		}
-		public void RemoveQueue(ulong id) {
-			if (Queues == null) {
-				return;
-			}
-			count--;
-			Queues.Remove(id);
+			Queues.Add(new KeyValuePair<ulong,FrameMessage[]>(id,queue));
 		}
 	 	public void Write(Stream w){
-	 		if (Queues == null || count <= 0) {
+	 		if (Queues == null || Queues.Count <= 0) {
 		 		throw new System.Exception("Invalid Message");
 			}
 			int _headLen = Head.Length;
@@ -195,17 +191,18 @@ namespace FlitterClient {
 			headLen.Write(w);
 			byte[] headBytes = System.Text.Encoding.Default.GetBytes(Head);
 			w.Write(headBytes,0,_headLen);
-			Length _count_l = (Length)count;
+			Length _count_l = (Length)Queues.Count;
 			_count_l.Write(w);
-			foreach (var kv in Queues) {
+			for (int i=0 ; i<Queues.Count; i++) {
+				var kv = Queues[i];
 				Length id_l = (Length)kv.Key;
 				FrameMessage[] queue = kv.Value;
 				id_l.Write(w);
 				Length queueCount_l = (Length)queue.Length;
 				queueCount_l.Write(w);
 				int queueCount = (int)queueCount_l;
-				for(int i = 0; i < queueCount; i++){
-					queue[i].Write(w);
+				for(int j = 0; j < queueCount; j++){
+					queue[j].Write(w);
 				}
 			}
 		}
@@ -216,11 +213,9 @@ namespace FlitterClient {
 			byte[] headBuf = new byte[_headLen];
 			r.Read(headBuf,0,_headLen);
 			Head = System.Text.Encoding.Default.GetString(headBuf);
-
-			Length count_l = (Length)count;
+			Length count_l = new Length(0);
 			count_l.Read(r);
-			count = (int)count_l;
-			Queues = new Dictionary<ulong,FrameMessage[]>();
+			var count = (int)count_l;
 			for (int i=0; i<count; i++) {
 				Length id_l = new Length(0);
 				id_l.Read(r);
@@ -228,54 +223,50 @@ namespace FlitterClient {
 				Length queueCount_l = new Length(0);
 				queueCount_l.Read(r);
 				int queueCount = (int)queueCount_l;
-				Queues[id] = new FrameMessage[queueCount];
+				var frames = new FrameMessage[queueCount];
 				for (int j=0; j<queueCount; j++) {
 					var msg = new FrameMessage();
 					msg.Read(r);
-					Queues[id][j] = msg;
+					frames[j] = msg;
 				}
+				AppendQueue(id,frames);
 			}
 		}
         public bool Equals(FrameQueuesMessage queues){
-        	if (count != queues.count) {
+        	if (Queues.Count != queues.Queues.Count) {
         		return false;
         	}
         	if (Head != queues.Head) {
         		return false;
         	}
-        	foreach (var kv in Queues) {
-        		var id = kv.Key;
-        		FrameMessage[] queue = kv.Value;
-        		FrameMessage[] oQueue;
-				if (queues.Queues.TryGetValue(id,out oQueue)) {
-					var queueCount = queue.Length;
-					var oQueueCount = oQueue.Length;
-					if (queueCount == oQueueCount){
-						for (int i=0; i<queueCount; i++) {
-							if(!queue[i].Equals(oQueue[i])){
-								return false;
-							}
-						}
-					}else{
+        	for (int i=0; i<Queues.Count; i++) {
+        		var framesKV = Queues[i];
+        		var framesOKV = queues.Queues[i];
+        		if (framesKV.Key != framesOKV.Key) {
+        			return false;
+        		}
+        		var frames = framesKV.Value;
+        		var framesO = framesOKV.Value;
+        		for (int j=0; j<frames.Length; i++) {
+					if(!frames[j].Equals(framesO[j])){
 						return false;
 					}
-				}else{
-					return false;
 				}
-			}
+        	}
         	return true;
         }
 		public override string ToString(){
-			string head = string.Concat("Head:", Head,"Count:",count,"Queue:[");
-			foreach (var kv in Queues) {
+			string head = string.Concat("Head:", Head,"Count:",Queues.Count,"Queue:[");
+			for (int i=0; i<Queues.Count; i++) {
+				var kv = Queues[i];
         		var id = kv.Key;
         		head = string.Concat(head,id,":[");
         		FrameMessage[] queue = kv.Value;
-				for (int i=0; i<queue.Length; i++) {
-					head = string.Concat(head," ",queue[i].ToString());
+				for (int j=0; j<queue.Length; j++) {
+					head = string.Concat(head," ",queue[j].ToString());
 				}
 				head = string.Concat(head,"]");
-			}
+        	}
 			head = string.Concat(head,"]");
 			return head;
 		}

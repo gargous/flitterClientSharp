@@ -1,2 +1,0 @@
-#/bin/sh
-sudo mcs -r:/usr/lib/mono/gac/System.Json/4.0.0.0__31bf3856ad364e35/System.Json.dll -r:/usr/lib/mono/gac/System.Drawing/4.0.0.0__b03f5f7f11d50a3a/System.Drawing.dll -r:/usr/lib/mono/gac/System.Windows.Forms/4.0.0.0__b77a5c561934e089/System.Windows.Forms.dll main.cs

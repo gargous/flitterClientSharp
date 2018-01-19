@@ -1,0 +1,2 @@
+#/bin/sh
+sudo mcs -r:/usr/lib/mono/gac/System.Drawing/4.0.0.0__b03f5f7f11d50a3a/System.Drawing.dll -r:/usr/lib/mono/gac/System.Windows.Forms/4.0.0.0__b77a5c561934e089/System.Windows.Forms.dll ../SimpleJson.cs ../../protocol.cs ../../client.cs main.cs -out:main.exe && mono main.exe
